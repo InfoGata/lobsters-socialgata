@@ -27,7 +27,7 @@
     "typescript": "^5.0.0",
     "util": "^0.12.5",
     "vite": "^6.2.4",
-    "vitest": "^2.1.0"
+    "vitest": "^4.1.4"
   },
   "browserslist": [
     "last 1 Chrome version"
