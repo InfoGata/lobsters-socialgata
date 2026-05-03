@@ -5,5 +5,8 @@
   "description": "Browse Lobsters feeds, comments, and user profiles",
   "script": "dist/index.js",
   "updateUrl": "https://cdn.jsdelivr.net/gh/InfoGata/lobsters-socialgata@latest/manifest.json",
-  "homepage": "https://github.com/InfoGata/lobsters-socialgata"
+  "homepage": "https://github.com/InfoGata/lobsters-socialgata",
+  "siteMatch": [
+    "https://lobste.rs/*"
+  ]
 }
