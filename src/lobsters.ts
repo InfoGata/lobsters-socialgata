@@ -117,12 +117,119 @@ export const userAvatarUrl = (avatarUrl: string | undefined): string | undefined
   return avatarUrl.startsWith("http") ? avatarUrl : `${lobstersUrl}${avatarUrl}`;
 };
 
+/**
+ * Search is the one Lobsters view with no `.json` representation — `/search.json`
+ * answers "400 Unpermitted query or form parameter" — so results have to come out
+ * of the HTML page. Everything a Post needs is in the markup, so no per-story
+ * hydration is required.
+ */
+export const SEARCH_RESULTS_PER_PAGE = 20;
+
+/**
+ * `order=relevance` rather than `newest`: Lobsters matches loosely across tags
+ * and descriptions, so ordering by date returns recent stories barely related to
+ * the query — a search for "rust" comes back looking like the hottest feed.
+ */
+export const searchPath = (query: string, page: number): string => {
+  const params = new URLSearchParams({
+    q: query,
+    what: "stories",
+    order: "relevance",
+    page: String(Math.max(1, page)),
+  });
+  return `/search?${params.toString()}`;
+};
+
+const absoluteUrl = (href: string | null | undefined): string | undefined => {
+  if (!href) return undefined;
+  return href.startsWith("http") ? href : `${lobstersUrl}${href}`;
+};
+
+const text = (el: Element | null): string => el?.textContent?.trim() ?? "";
+
+/** "15 comments" / "1 comment" / "no comments" */
+const parseCommentCount = (label: string): number => {
+  const match = label.match(/\d+/);
+  return match ? Number(match[0]) : 0;
+};
+
+const parseSearchStory = (el: Element): Post | undefined => {
+  const apiId = el.getAttribute("data-shortid");
+  const link = el.querySelector(".link a.u-url");
+  if (!apiId || !link) return undefined;
+
+  // The byline holds two links to the same profile — an avatar and the name.
+  // Only the second carries text.
+  const author = [...el.querySelectorAll('.byline a[href^="/~"]')]
+    .map(text)
+    .find(Boolean);
+  const commentsLink = el.querySelector('.comments_label a[href^="/s/"]');
+  const description = el.querySelector("a.description_present");
+  // `datetime` carries no timezone; the unix stamp beside it is unambiguous.
+  const unix = el.querySelector("time")?.getAttribute("data-at-unix");
+
+  return {
+    apiId,
+    title: text(link),
+    url: absoluteUrl(link.getAttribute("href")),
+    body: description?.getAttribute("title") ?? undefined,
+    authorName: author,
+    authorApiId: author,
+    originalUrl: absoluteUrl(commentsLink?.getAttribute("href")),
+    score: Number(text(el.querySelector(".voters .upvoter"))) || 0,
+    numOfComments: parseCommentCount(text(commentsLink)),
+    publishedDate: unix
+      ? new Date(Number(unix) * 1000).toISOString()
+      : undefined,
+  };
+};
+
+/**
+ * `nextPage` comes from the page links the server rendered rather than from a
+ * full result count: Lobsters caps search paging, so "20 results on this page"
+ * does not imply another one exists.
+ */
+const maxSearchPage = (doc: Document): number => {
+  const pages = [...doc.querySelectorAll('a[href*="page="]')]
+    .map((a) => Number(new URLSearchParams(
+      (a.getAttribute("href") ?? "").split("?")[1] ?? ""
+    ).get("page")))
+    .filter((page) => Number.isFinite(page) && page > 0);
+  return pages.length ? Math.max(...pages) : 1;
+};
+
+export const parseSearchResults = (
+  doc: Document,
+  currentPage: number
+): SearchResponse => {
+  const items = [...doc.querySelectorAll("li[data-shortid]")]
+    .map(parseSearchStory)
+    .filter((post): post is Post => !!post);
+  items.forEach((item, index) => {
+    item.number = (currentPage - 1) * SEARCH_RESULTS_PER_PAGE + index + 1;
+  });
+  return {
+    items,
+    pageInfo: {
+      page: currentPage,
+      nextPage:
+        items.length && currentPage < maxSearchPage(doc)
+          ? currentPage + 1
+          : undefined,
+      prevPage: currentPage > 1 ? currentPage - 1 : undefined,
+    },
+  };
+};
+
 export const buildFeedResponse = (
   stories: LobstersStory[],
   currentPage: number,
   feedTypeId: string
 ): GetFeedResponse => {
   const storiesPerPage = 25;
+  if (!Array.isArray(stories)) {
+    throw new Error("Lobsters returned an unexpected feed payload");
+  }
   const items = stories.map(storyToPost);
   items.forEach((item, index) => {
     item.number = (currentPage - 1) * storiesPerPage + index + 1;
