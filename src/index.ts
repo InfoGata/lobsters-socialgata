@@ -5,6 +5,7 @@ import {
   buildCommentTree,
   buildFeedResponse,
   feedPath,
+  isBotChallenge,
   lobstersUrl,
   parseSearchResults,
   searchPath,
@@ -12,13 +13,15 @@ import {
   userAvatarUrl,
 } from "./lobsters";
 
-const fallbackCorsProxy = "https://corsproxy.io/?url=";
+// Our own worker (libraries/cloudflare/cloudcors, wrangler.lobsters.toml),
+// allowlisted to lobste.rs only. corsproxy.io used to be the fallback but now
+// answers 401 to every request without an API key.
+const fallbackCorsProxy = "https://cloudcors-lobsters.audio-pwa.workers.dev/?url=";
 
 /**
  * lobste.rs sends no CORS headers, so a browser fetch needs a proxy. The
- * extension, Electron and the native shells aren't bound by CORS and issue the
- * request from a context the proxy's free tier rejects anyway (no localhost
- * origin), so they must go straight to the site.
+ * extension, Electron and the native shells aren't bound by CORS, so they go
+ * straight to the site.
  */
 async function lobstersFetch(path: string): Promise<Response> {
   const target = `${lobstersUrl}${path}`;
@@ -77,7 +80,17 @@ async function getSearchDocument(
     );
   }
   const html = await response.text();
-  return new DOMParser().parseFromString(html, "text/html");
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  // lobste.rs puts search behind a bot check that challenges every request
+  // from a Cloudflare worker (it keys on the Cf-Worker header, which a worker
+  // can't drop). The challenge page is a 200, so without this it would parse
+  // as an empty result list.
+  if (isBotChallenge(doc)) {
+    throw new Error(
+      "Lobsters search is only available with the SocialGata browser extension or app"
+    );
+  }
+  return doc;
 }
 
 const getFeed = async (request?: GetFeedRequest): Promise<GetFeedResponse> => {

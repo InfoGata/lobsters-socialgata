@@ -2,7 +2,12 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { JSDOM } from "jsdom";
 import { beforeAll, describe, expect, it } from "vitest";
-import { SEARCH_RESULTS_PER_PAGE, parseSearchResults, searchPath } from "./lobsters";
+import {
+  SEARCH_RESULTS_PER_PAGE,
+  isBotChallenge,
+  parseSearchResults,
+  searchPath,
+} from "./lobsters";
 
 /**
  * Search results are scraped from the HTML page, so these run against a real
@@ -129,5 +134,22 @@ describe("parseSearchResults", () => {
       1
     );
     expect(partial.items).toEqual([]);
+  });
+});
+
+describe("isBotChallenge", () => {
+  // Captured by requesting the search page with a Cf-Worker header, which is
+  // what every request through the cloudflare proxy carries.
+  const challenge = readFileSync(
+    fileURLToPath(new URL("./fixtures/search-bot-challenge.html", import.meta.url)),
+    "utf8"
+  );
+
+  it("recognises the challenge page", () => {
+    expect(isBotChallenge(new JSDOM(challenge).window.document)).toBe(true);
+  });
+
+  it("does not flag a real search page", () => {
+    expect(isBotChallenge(new JSDOM(fixture).window.document)).toBe(false);
   });
 });

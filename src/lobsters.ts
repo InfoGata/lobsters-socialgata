@@ -130,6 +130,10 @@ export const SEARCH_RESULTS_PER_PAGE = 20;
  * and descriptions, so ordering by date returns recent stories barely related to
  * the query — a search for "rust" comes back looking like the hottest feed.
  */
+/** True for the anti-bot interstitial lobste.rs serves in place of a page. */
+export const isBotChallenge = (doc: Document): boolean =>
+  /not a bot/i.test(doc.title) && !doc.querySelector("form[action='/search']");
+
 export const searchPath = (query: string, page: number): string => {
   const params = new URLSearchParams({
     q: query,
