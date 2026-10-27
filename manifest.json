@@ -2,12 +2,15 @@
   "id": "LB7q3v9rZkMn",
   "alias": "lobsters",
   "name": "Lobsters Plugin for SocialGata",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "Browse Lobsters feeds, comments, and user profiles",
   "script": "dist/index.js",
   "updateUrl": "https://cdn.jsdelivr.net/gh/InfoGata/lobsters-socialgata@latest/manifest.json",
   "homepage": "https://github.com/InfoGata/lobsters-socialgata",
   "siteMatch": [
     "https://lobste.rs/*"
+  ],
+  "pageContextRequests": [
+    "https://lobste.rs/search*"
   ]
 }

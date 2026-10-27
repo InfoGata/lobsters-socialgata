@@ -81,13 +81,13 @@ async function getSearchDocument(
   }
   const html = await response.text();
   const doc = new DOMParser().parseFromString(html, "text/html");
-  // lobste.rs puts search behind a bot check that challenges every request
-  // from a Cloudflare worker (it keys on the Cf-Worker header, which a worker
-  // can't drop). The challenge page is a 200, so without this it would parse
-  // as an empty result list.
+  // The host solves the check in a page on lobste.rs (see `enableSearch`). When
+  // that page couldn't -- InfoGata extension 1.5.0 and older never load /search
+  // themselves -- the challenge comes back instead, as a 200 that would parse
+  // as no results. A tab that has loaded /search holds the cookie that passes.
   if (isBotChallenge(doc)) {
     throw new Error(
-      "Lobsters search is only available with the SocialGata browser extension or app"
+      "Lobsters' bot check blocked the search. Open https://lobste.rs/search in a browser tab once, then try again."
     );
   }
   return doc;
@@ -146,12 +146,29 @@ const init = async () => {
 application.onGetFeed = getFeed;
 application.onGetComments = getComments;
 application.onGetUser = getUser;
-application.onSearch = search;
 application.onGetPlatformType = async () => "forum";
 
 application.onChangeTheme = async (theme: Theme) => {
   changeTheme(theme);
 };
 
+/**
+ * lobste.rs puts /search, and only /search, behind Anubis, which challenges
+ * every browser user agent and our proxy worker alike. Only a real page on the
+ * site can solve it, and only the extension, the desktop build and Android can
+ * make requests from one (`pageContextRequests` in the manifest). Anywhere else
+ * search could only fail, so it isn't offered.
+ */
+const enableSearch = async () => {
+  let available = false;
+  try {
+    available = await application.isPageContextAvailable();
+  } catch {
+    // A host from before the method existed has no page context either.
+  }
+  application.onSearch = available ? search : undefined;
+};
+
 application.onPostLogin = init;
 init();
+enableSearch();
