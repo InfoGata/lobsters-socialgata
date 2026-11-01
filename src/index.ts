@@ -4,6 +4,7 @@ import {
   LobstersUser,
   buildCommentTree,
   buildFeedResponse,
+  domainPath,
   feedPath,
   isBotChallenge,
   lobstersUrl,
@@ -128,6 +129,25 @@ const getUser = async (request: GetUserRequest): Promise<GetUserResponse> => {
   };
 };
 
+const getDomain = async (
+  request: GetDomainRequest
+): Promise<GetDomainResponse> => {
+  const currentPage = Number(request.pageInfo?.page ?? 1);
+  const response = await lobstersFetch(domainPath(request.domain, currentPage));
+  // A domain nobody has submitted yet is a 404, not an error worth showing.
+  if (response.status === 404) {
+    return { items: [] };
+  }
+  if (!response.ok) {
+    throw new Error(
+      `Lobsters request failed: domain ${request.domain} returned ${response.status} ${response.statusText}`
+    );
+  }
+  const stories = (await response.json()) as LobstersStory[];
+  const { items, pageInfo } = buildFeedResponse(stories, currentPage, "hottest");
+  return { items, pageInfo };
+};
+
 const search = async (request: SearchRequest): Promise<SearchResponse> => {
   const currentPage = Number(request.pageInfo?.page ?? 1);
   const doc = await getSearchDocument(request.query, currentPage);
@@ -146,6 +166,7 @@ const init = async () => {
 application.onGetFeed = getFeed;
 application.onGetComments = getComments;
 application.onGetUser = getUser;
+application.onGetDomain = getDomain;
 application.onGetPlatformType = async () => "forum";
 
 application.onChangeTheme = async (theme: Theme) => {

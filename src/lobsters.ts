@@ -57,6 +57,17 @@ export const feedPath = (feedType: string, page: number): string => {
   return page <= 1 ? "/hottest.json" : `/page/${page}.json`;
 };
 
+/**
+ * Stories linking to one site. Lobsters keys domains without a leading `www.`,
+ * the same way the app does, and 404s one it has never seen.
+ */
+export const domainPath = (domain: string, page: number): string => {
+  const encoded = encodeURIComponent(domain.toLowerCase());
+  return page <= 1
+    ? `/domains/${encoded}.json`
+    : `/domains/${encoded}/page/${page}.json`;
+};
+
 export const storyToPost = (story: LobstersStory): Post => {
   return {
     apiId: story.short_id,

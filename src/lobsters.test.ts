@@ -5,6 +5,7 @@ import {
   buildCommentTree,
   buildFeedResponse,
   commentToPost,
+  domainPath,
   feedPath,
   storyToPost,
   userAvatarUrl,
@@ -46,6 +47,20 @@ const makeComment = (
   depth: 0,
   commenting_user: "bob",
   ...overrides,
+});
+
+describe("domainPath", () => {
+  it("uses /domains/X.json for page 1", () => {
+    expect(domainPath("github.com", 1)).toBe("/domains/github.com.json");
+  });
+
+  it("uses /domains/X/page/N.json for later pages", () => {
+    expect(domainPath("github.com", 3)).toBe("/domains/github.com/page/3.json");
+  });
+
+  it("lowercases the domain", () => {
+    expect(domainPath("GitHub.com", 1)).toBe("/domains/github.com.json");
+  });
 });
 
 describe("feedPath", () => {
